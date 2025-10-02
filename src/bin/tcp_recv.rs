@@ -1,35 +1,57 @@
-use std::io;
-use std::net::UdpSocket;
-use std::time::Duration;
+use dotenvy::dotenv;
+use mysql::prelude::*;
+use mysql::*;
+use std::env;
+use std::error::Error;
+use std::io::Read;
+use std::net::{TcpListener, TcpStream};
 
-fn main() -> io::Result<()> {
-    let socket = UdpSocket::bind("127.0.0.1:8080")?;
-    println!("受信待ち...");
+#[derive(Debug, FromRow)]
+struct Trade {
+    id: u64,
+    ticker: String,
+    price: f64,
+    quantity: u32,
+}
 
-    socket.set_read_timeout(Some(Duration::from_secs(10)))?;
+fn main() -> Result<(), Box<dyn Error>> {
+    dotenv().ok();
 
-    let mut buf = [0; 1024];
-    let mut received_count = 0;
+    let database_url = env::var("DATABASE_URL")?;
+    let pool = Pool::new(database_url.as_str())?;
 
-    loop {
-        match socket.recv_from(&mut buf) {
-            Ok((size, _src)) => {
-                received_count += 1;
-                let message = String::from_utf8_lossy(&buf[..size]);
-                println!("{}: 受信回数, メッセージ: {}", received_count, message);
+    println!("データベース接続成功");
+
+    let listener = TcpListener::bind("127.0.0.1:8081")?;
+    println!("TCPサーバーが起動しました。ポート8081で待機中...");
+
+    for stream_result in listener.incoming() {
+        let mut stream: TcpStream = stream_result?;
+        let mut buf = [0u8; 8];
+
+        stream.read_exact(&mut buf)?;
+
+        let record_id = u64::from_be_bytes(buf);
+        println!("受信したID: {}", record_id);
+
+        let mut conn = pool.get_conn()?;
+        let selected_trade: Option<Trade> = conn.exec_first(
+            "SELECT id, ticker, price, quantity FROM trades WHERE id = ?",
+            (record_id,),
+        )?;
+
+        match selected_trade {
+            Some(t) => {
+                println!(
+                    "ID:{}のデータを取得しました!tickerは{}, priceは{}, quantityは{}です.",
+                    t.id, t.ticker, t.price, t.quantity
+                );
             }
-
-            Err(e) => {
-                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut {
-                    println!("受信タイムアウト");
-                    break;
-                }
-                eprintln!("受信エラー: {}", e);
+            None => {
+                println!("ID:{}に対応するデータが見つかりません.", record_id);
             }
         }
     }
-
-    println!("最終受信回数: {}", received_count);
 
     Ok(())
 }

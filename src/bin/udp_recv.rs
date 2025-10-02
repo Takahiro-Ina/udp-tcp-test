@@ -22,15 +22,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("データベース接続成功");
 
     let socket = UdpSocket::bind("127.0.0.1:8081")?;
-    println!("UDP待機中... (127.0.0.1:8081)\n");
+    println!("UDP待機中... (127.0.0.1:8081)");
 
-    let mut buf = [0u8; 8];
+    let mut buf = [0u8; 1024];
 
     loop {
         let (len, src) = socket.recv_from(&mut buf)?;
         println!("受信: {} バイト from {}", len, src);
 
-        let record_id = u64::from_be_bytes(buf);
+        if len != 8 {
+            println!(
+                "無効なデータ長: {} バイト. 8バイトのIDを期待しています.\n",
+                len
+            );
+            continue;
+        }
+
+        let id_bytes: [u8; 8] = buf[..8].try_into()?;
+        let record_id = u64::from_be_bytes(id_bytes);
         println!("受信したID: {}", record_id);
 
         let mut conn = pool.get_conn()?;

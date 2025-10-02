@@ -1,7 +1,15 @@
-recv:
+# UDP通信
+urecv:
 	cargo run --bin udp_recv
 
-send:
+usend:
 	cargo run --bin udp_send
 
-.PHONY: recv send
+# TCP通信
+trecv:
+	cargo run --bin tcp_recv
+
+tsend:
+	cargo run --bin tcp_send
+
+.PHONY: urecv usend trecv tsend

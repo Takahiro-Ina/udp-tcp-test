@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
 
     let trade_to_insert = Trade {
-        ticker: "GRAPE".to_string(),
+        ticker: "APPLE".to_string(),
         price: 123.45,
         quantity: 100,
     };
@@ -54,6 +54,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let socket = UdpSocket::bind("127.0.0.1:0")?;
 
     socket.send_to(&last_id_byte, "127.0.0.1:8081")?;
+    // let id: [u8; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+    // socket.send_to(&id, "127.0.0.1:8081")?;
 
     println!("UDPでIDを送信: {}", last_id);
 
